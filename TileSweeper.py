@@ -684,6 +684,8 @@ class DispatchFrame(Tkinter.Frame):
         self.master.destroy()
                 
 if __name__ == "__main__":
+    import sys
+    subjectID = sys.argv[1]
     root = Tkinter.Tk()
     root.wm_title("Tile Sweeper")
     root.configure(background = "white")
