@@ -1,4 +1,4 @@
-#!bin/bash
+#/!bin/bash
 cd ~/experiment
 
 echo "Please enter your subject ID"
