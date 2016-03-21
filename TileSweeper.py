@@ -626,7 +626,7 @@ class QuitWindow:
         self.window = Tkinter.Toplevel(parent)
         self.window.wm_title("Quit?")
         self.window.resizable(0,0)
-        self.window.geometry("250x100+400+200")
+        self.window.geometry("250x150+400+200")
         #Make the window contents
         dialog = Tkinter.Label(self.window,text = "Do you want to move on to the next game?")
         yes = Tkinter.Button(self.window,text = "yes",command = self.yes)
