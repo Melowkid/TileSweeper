@@ -270,7 +270,7 @@ class RuleGenerator:
                     
         
 class Grid:
-    stringRepresentation = "Get the highest score possible!\n"
+    stringRepresentation = "Get the highest score possible!\nIf you feel like you cannot get a higher score,\npress escape to move on to the next game."
     display = False
     number = 0
     size = (0,0)
@@ -310,7 +310,7 @@ class Grid:
     def __getitem__(self,index):
         return self.gridMap[index]
     def getText(self,tileModel,scoreModel):
-        self.stringRepresentation = "Get the highest score possible!\n"
+        self.stringRepresentation = "Get the highest score possible!\nIf you feel like you cannot get a higher score,\npress escape to move on to the next game."
         if not self.condition == "Explicit": return self.stringRepresentation
         else:
             for x in self.ruleMap.keys():
@@ -412,8 +412,6 @@ class RulesView(Tkinter.Button):
         self.window = Tkinter.Toplevel(self)
         self.window.wm_title("Rule Display")
         self.window.resizable(0,0)
-        self.window.wm_attributes("-topmost",1)     #Windows only
-        self.window.wm_attributes("-toolwindow",1)  #Windows only
         self.window.geometry("700x700+50+100")
         #Display the rules
         ruleLabel = Tkinter.Label(self.window)
@@ -628,11 +626,9 @@ class QuitWindow:
         self.window = Tkinter.Toplevel(parent)
         self.window.wm_title("Quit?")
         self.window.resizable(0,0)
-        self.window.wm_attributes("-topmost",1)     #Windows only
-        self.window.wm_attributes("-toolwindow",1)  #Windows only
-        self.window.geometry("200x100+400+200")
+        self.window.geometry("250x100+400+200")
         #Make the window contents
-        dialog = Tkinter.Label(self.window,text = "Do you want to quit?")
+        dialog = Tkinter.Label(self.window,text = "Do you want to move on to the next game?")
         yes = Tkinter.Button(self.window,text = "yes",command = self.yes)
         no = Tkinter.Button(self.window,text = "no",command = self.no)
         #Pack the contents
@@ -662,7 +658,7 @@ class MainFrame(Tkinter.Frame):
         self.logger = logger
         #Make the window cover the screen
         w, h = self.master.winfo_screenwidth(), self.master.winfo_screenheight()
-        self.master.overrideredirect(1)
+        self.master.attributes("-fullscreen",True)
         self.master.geometry("%dx%d+0+0" % (w, h))
         #Create the simple models needed
         self.font = "Helvetica 16 bold"     #The font of the information labels
@@ -699,7 +695,7 @@ class MainFrame(Tkinter.Frame):
         self.tileGridView.pack(fill = Tkinter.BOTH,expand = 1)
         #Create the controllers needed
         self.master.bind("<Escape>", self.quit)
-        self.master.bind("<Shift-R>", self.reveal)  #REMOVE FOR GAME
+        #self.master.bind("<Shift-R>", self.reveal)  #REMOVE FOR GAME
         self.scoreController = ScoreController(self.score,self.infoView.scoreView,self.logger)
         self.gridController = TileGridController(self.tileGrid,self.tileGridView,self.logger,self.scoreController.update)
         self.timerController = TimerController(self.timer,self.infoView.timerView,self.logger)
@@ -739,7 +735,7 @@ class DispatchFrame(Tkinter.Frame):
         self.counter = 1
         #Make the window cover the screen
         w, h = self.master.winfo_screenwidth(), self.master.winfo_screenheight()
-        self.master.overrideredirect(1)
+        self.master.attributes("-fullscreen",True)
         self.master.geometry("%dx%d+0+0" % (w, h))
         #Set which condition to use
         random.seed(time.time())
