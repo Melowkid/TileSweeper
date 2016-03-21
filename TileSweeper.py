@@ -8,12 +8,38 @@ import copy
 class Score:
     points = 0
     scoreMap = {}
-    def __init__(self,number,scoreRange):  #Score range is number of different tiles, bombmin, bombmax, tileaverage, tilerange
-        #Create score map model
+    def __init__(self,grid,scoreRange):  #Score range is number of different tiles, bombmin, bombmax, tileaverage, otheroffset
+        #Leftover Tiles are worth zero points
         self.scoreMap[0] = 0
+        #Bombs are worth a bomb amount of points
         self.scoreMap[1] = -1*random.randint(scoreRange[0],scoreRange[1])
-        for x in range(2,number+1):
-            self.scoreMap[x] = random.randint(0,scoreRange[2])-scoreRange[3]
+        #Find the worth of the total bomb tiles
+        bombSum = 0
+        for x in range(grid.size[0]):
+            for y in range(grid.size[1]):
+                if(grid[(x,y)] == 1):
+                    bombSum += self.scoreMap[1]
+        #Find the number of other tiles
+        numOther = 0
+        numLast = 0
+        for x in range(grid.size[0]):
+            for y in range(grid.size[1]):
+                if(grid[(x,y)] > 1):
+                    numOther += 1
+                if(grid[(x,y)] == grid.number-1):
+                    numLast += 1
+        #Make the total points equal roughly 2,000 at the end
+        pointAverage = (2000 - bombSum)/numOther
+        for x in range(2,grid.number-1):
+            self.scoreMap[x] = random.randint(0,2*scoreRange[2]-scoreRange[3])+pointAverage-scoreRange[2]
+        semiFinalSum = 0
+        for x in range(grid.size[0]):
+            for y in range(grid.size[1]):
+                if(grid[(x,y)] > 1 and grid[(x,y)] < grid.number-1):
+                    semiFinalSum += self.scoreMap[grid[(x,y)]]
+        #Return if there are no tiles of the right size
+        if numLast == 0: return
+        self.scoreMap[grid.number-1] = ((2000-bombSum)-semiFinalSum)/numLast
     def update(self,index):
         if index == None: return
         self.points += self.scoreMap[index]
@@ -251,7 +277,7 @@ class Grid:
     gridMap = {}
     remainingMap = {}
     ruleMap = {}
-    def __init__(self,number,size,condition = "WITH_RULES"): 
+    def __init__(self,number,size,condition = "Explicit"): 
         #Create the state of the rule generator
         self.size = size
         self.number = number
@@ -285,7 +311,7 @@ class Grid:
         return self.gridMap[index]
     def getText(self,tileModel,scoreModel):
         self.stringRepresentation = "Get the highest score possible!\n"
-        if not self.condition == "WITH_RULES": return self.stringRepresentation
+        if not self.condition == "Explicit": return self.stringRepresentation
         else:
             for x in self.ruleMap.keys():
                 rule = self.ruleMap[x]
@@ -362,7 +388,7 @@ class Timer:
 
 class RulesView(Tkinter.Button):
     window = None
-    def __init__(self,parent,ruleModel,tileModel,scoreModel,font = None,**kwargs):
+    def __init__(self,parent,ruleModel,tileModel,scoreModel,logger,font = None,**kwargs):
         #Extend the button class
         Tkinter.Button.__init__(self,parent,**kwargs)
         #Store the rule, tile, and score model pointers
@@ -370,6 +396,7 @@ class RulesView(Tkinter.Button):
         self.tileModel = tileModel
         self.scoreModel = scoreModel
         self.font = font
+        self.logger = logger
         #Configure the button
         self.configure(font = self.font)
     def bind(self):
@@ -396,12 +423,27 @@ class RulesView(Tkinter.Button):
         self.window.focus_force()   #Make sure that the rule window has focus so that escape doesn't kill everything
         self.window.protocol("WM_DELETE_WINDOW",self.close)
         self.window.bind("<Escape>",self.close)
+        #Log that the rules window was created
+        self.window.update()
+        rulesSize = (self.window.winfo_height(),self.window.winfo_width())
+        rulesPos = (self.window.winfo_rootx(),self.window.winfo_rooty())
+        self.logger.log("System","RulesOpen",{"RulesVisible":True,"RulesPos":rulesPos,"RulesSize":rulesSize})
+        #Start a listener for rule moves
+        self.listener()
     def minimize(self,event = None):
         print "this"
         pass
+    def listener(self,event = None):
+        if self.window == None: return
+        rulesSize = (self.window.winfo_height(),self.window.winfo_width())
+        rulesPos = (self.window.winfo_rootx(),self.window.winfo_rooty())
+        self.logger.log("System","RulesListener",{"RulesVisible":True,"RulesPos":rulesPos,"RulesSize":rulesSize})
+        self.after(250,self.listener)
     def close(self,event = None):
         self.window.destroy()
         self.window = None
+        #Log that the window was destroyed
+        self.logger.log("System","RulesClose",{"RulesVisible":False,"RulesPos":(0,0),"RulesSize":(0,0)})
         
 class ScoreView(Tkinter.Label):
     def __init__(self,parent,score,**kwargs):
@@ -433,7 +475,7 @@ class TimerView(Tkinter.Label):
         self.configure(text = displayText)
 
 class InfoView(Tkinter.Frame):
-    def __init__(self,parent,rules,tiles,score,timer,font = None,**kwargs):
+    def __init__(self,parent,rules,tiles,score,timer,logger,font = None,**kwargs):
         #Extend the frame class
         Tkinter.Frame.__init__(self,parent,**kwargs)
         #Make a score in upper left and a timer in the middle
@@ -441,8 +483,9 @@ class InfoView(Tkinter.Frame):
         self.tiles = tiles
         self.score = score
         self.timer = timer
+        self.logger = logger
         #Make the views for them
-        self.rulesView = RulesView(self,self.rules,self.tiles,self.score,font = font)
+        self.rulesView = RulesView(self,self.rules,self.tiles,self.score,self.logger,font = font)
         self.scoreView = ScoreView(self,self.score,font = font)
         self.timerView = TimerView(self,self.timer,font = font)
         #Pack the views, arranging them correctly
@@ -501,46 +544,60 @@ class TileGridView(Tkinter.Canvas):
         self.paint()
 
 class ScoreController:
-    def __init__(self,score,scoreView):
+    def __init__(self,score,scoreView,logger):
         #Set pointers for ease of use
         self.score = score
         self.scoreView = scoreView
+        self.logger = logger
     def update(self,index):
         self.score.update(index)
         self.scoreView.paint()
+        if index == None: return
+        self.logger.log("System","ScoreUpdate",{"ScoreChange":self.score.scoreMap[index],"Score":self.score.points})
 
 class TimerController:
-    def __init__(self,timer,timerView):
+    def __init__(self,timer,timerView,logger):
         #Set pointers for ease of use
         self.timer = timer
         self.timerView = timerView
+        self.logger = logger
         #Bindings to call at different times
         self.bindings = {}
     def start(self):
         self.timer.start()
     def run(self,root):
         self.timerView.paint()
+        timerVal = self.timer.get()
         for x in self.bindings.keys():
-            if self.timer.get() <= x:
+            if timerVal <= x:
                 self.bindings[x]()
         root.after(1000, lambda: self.run(root))
+        #Log the time tick
+        self.logger.log("System","TimerTick",{"Timer":int(timerVal)})
     def bind(self,time,call):
         self.bindings[time] = call
         
         
 class TileGridController:
-    def __init__(self,tileGrid,tileGridView,pointCallback):
+    def __init__(self,tileGrid,tileGridView,logger,pointCallback):
         #Sets whether the grid is active or not
         self.active = True
         #Set pointers for ease of use
         self.tileGrid = tileGrid
         self.gridView = tileGridView
         self.pointCallback = pointCallback
+        self.logger = logger
         #Bind callbacks
         for x in range(self.tileGrid.size()[0]):
             for y in range(self.tileGrid.size()[1]):
                 index = (x,y)
                 self.gridView.tag_bind(self.gridView.objects[index],"<Button-1>", self.tileBind)
+    def listener(self,root):
+        mousePos = (root.winfo_pointerx(),root.winfo_pointery())
+        id = self.gridView.find_closest(mousePos[0],mousePos[1])
+        gridPos = self.gridView.ids[id[0]]
+        self.logger.log("Subject","MouseListener",{"MousePos":mousePos,"GridPos":gridPos})
+        root.after(250,lambda: self.listener(root))
     def tileBind(self,event):
         if not self.active: return
         id = self.gridView.find_closest(event.x, event.y)
@@ -549,6 +606,8 @@ class TileGridController:
         self.gridView.repaint(index)
         #Send the point indexes to the score model
         self.pointCallback(tileType)
+        #Log that the tile was uncovered
+        self.logger.log("System","TileUncovery",{"MousePos":(event.x,event.y),"GridPos":index})
     def reveal(self,event = None):
         #Reveal the whole tile grid
         for x in range(self.tileGrid.size()[0]):
@@ -560,9 +619,11 @@ class TileGridController:
         self.active = False
         
 class QuitWindow:
-    def __init__(self,parent):
+    def __init__(self,parent,logger):
         #Bind the parent
         self.parent = parent
+        #Bind the logger
+        self.logger = logger
         #Make the window
         self.window = Tkinter.Toplevel(parent)
         self.window.wm_title("Quit?")
@@ -586,23 +647,25 @@ class QuitWindow:
     def focus(self,event = None):
         self.window.focus_force()
     def yes(self,event = None):
+        self.logger.log("System","Quit",{})
         self.parent.destroy()
     def no(self,event = None):
         self.window.destroy()
         
 class MainFrame(Tkinter.Frame):
-    def __init__(self,parent,condition,**kwargs):
+    def __init__(self,parent,condition,logger,**kwargs):
         #Expand the frame class
         Tkinter.Frame.__init__(self,parent,**kwargs)
         #Create a handle to the window that contains the main Tkinter frame
         self.master = parent
         self.condition = condition          #The experimental condition this subject is in
+        self.logger = logger
         #Make the window cover the screen
         w, h = self.master.winfo_screenwidth(), self.master.winfo_screenheight()
         self.master.overrideredirect(1)
         self.master.geometry("%dx%d+0+0" % (w, h))
         #Create the simple models needed
-        self.font = "Helvetica 18 bold"     #The font of the information labels
+        self.font = "Helvetica 16 bold"     #The font of the information labels
         self.coverColor = "white"           #The tile covers are white
         self.pallete = [                    #The pallete for coloring tiles is 8 different colors
             "brown",
@@ -616,41 +679,61 @@ class MainFrame(Tkinter.Frame):
         ]
         self.gridSize = (30,15)             #Size of the grid
         self.ruleSize = 8                   #Use seven different rules
-        self.scoreRange = (60,100,40,15)    #The range of tile point values to use: (bombmin,bombmax,tilemean,tilerange)
-        self.timerLength = 1200               #The length of the countdown timer
+        self.scoreRange = (60,100,15,7)     #The range of tile point values to use: (bombmin,bombmax,tilerange,tileoffset)
+        self.timerLength = 1200             #The length of the countdown timer
         random.shuffle(self.pallete)        #Randomize the pallete
+        #Log the different items
+        self.logger.setItem("GridSize",self.gridSize)
+        self.logger.setItem("NumRules",self.ruleSize)
+        self.logger.setItem("ScoreRange",self.scoreRange)
+        self.logger.setItem("TimerLength",self.timerLength)
         #Create the complex models needed
-        self.score = Score(self.ruleSize,self.scoreRange)
         self.timer = Timer(self.timerLength)
         self.grid = Grid(self.ruleSize,self.gridSize,self.condition)
         self.tileGrid = TileGrid(self.grid,self.coverColor,self.pallete)
+        self.score = Score(self.grid,self.scoreRange)
         #Create the views needed
-        self.infoView = InfoView(self,self.grid,self.tileGrid,self.score,self.timer,font = self.font)
+        self.infoView = InfoView(self,self.grid,self.tileGrid,self.score,self.timer,self.logger,font = self.font)
         self.tileGridView = TileGridView(self,self.tileGrid)
         self.infoView.pack(fill = Tkinter.X,anchor = Tkinter.N)
         self.tileGridView.pack(fill = Tkinter.BOTH,expand = 1)
         #Create the controllers needed
-        self.master.bind("<Escape>", self.quit)     #REMOVE FOR GAME
+        self.master.bind("<Escape>", self.quit)
         self.master.bind("<Shift-R>", self.reveal)  #REMOVE FOR GAME
-        self.scoreController = ScoreController(self.score,self.infoView.scoreView)
-        self.timerController = TimerController(self.timer,self.infoView.timerView)
-        self.gridController = TileGridController(self.tileGrid,self.tileGridView,self.scoreController.update)
+        self.scoreController = ScoreController(self.score,self.infoView.scoreView,self.logger)
+        self.gridController = TileGridController(self.tileGrid,self.tileGridView,self.logger,self.scoreController.update)
+        self.timerController = TimerController(self.timer,self.infoView.timerView,self.logger)
+        #Log that the game has started
+        mousePos = (self.master.winfo_pointerx(),self.master.winfo_pointery())
+        id = self.tileGridView.find_closest(mousePos[0],mousePos[1])
+        gridPos = self.tileGridView.ids[id[0]]
+        self.logger.log("System","Start",{"MousePos":mousePos,"GridPos":gridPos,"Timer":self.timerLength})
+        #Log mouse movements every quarter second
+        self.gridController.listener(self.master)
+        #Log mouse clicks
+        self.master.bind("<Button-1>",self.clickLogger)
+        #Force the focus
+        self.focus_force()
         #Start the timer
         self.timerController.start()
         self.timerController.run(self.master)
         self.timerController.bind(0,self.gridController.deactivate) #Make the timer deactivate the grid at zero
         self.timerController.bind(-2,self.master.destroy)
-        #Force the focus
-        self.focus_force()
+    def clickLogger(self,event = None):
+        id = self.tileGridView.find_closest(event.x, event.y)
+        index = self.tileGridView.ids[id[0]]
+        self.logger.log("Subject","MouseClick",{"MousePos":(event.x,event.y),"GridPos":index})
     def reveal(self,event = None):
         self.gridController.reveal()
     def quit(self,event = None):
-        self.quitWindow = QuitWindow(self.master)
+        self.quitWindow = QuitWindow(self.master,self.logger)
        
 class DispatchFrame(Tkinter.Frame):
-    def __init__(self,parent,**kwargs):
+    def __init__(self,parent,logger,**kwargs):
         #Expand the frame class
         Tkinter.Frame.__init__(self,parent,**kwargs)
+        #Create a handle to the logger
+        self.logger = logger
         #Create a handle to the window that contains the main Tkinter frame
         self.master = parent
         self.counter = 1
@@ -658,8 +741,10 @@ class DispatchFrame(Tkinter.Frame):
         w, h = self.master.winfo_screenwidth(), self.master.winfo_screenheight()
         self.master.overrideredirect(1)
         self.master.geometry("%dx%d+0+0" % (w, h))
-        #Assign an experimental condition
-        self.condition = random.choice(["WITH_RULES","WITHOUT_RULES"])
+        #Set which condition to use
+        random.seed(time.time())
+        self.condition = random.choice(["Explicit","Implicit"])
+        self.logger.setItem("Condition",self.condition)
         #Button dialog to start the game
         self.dialog = Tkinter.Label(self,text = "Press the button to start game 1 of 3",font = "Helvetica 18")
         self.start = Tkinter.Button(self,text = "start",command = self.start,font = "Helvetica 14 bold")
@@ -667,28 +752,115 @@ class DispatchFrame(Tkinter.Frame):
         self.start.place(relx=.5,rely=.55,anchor = Tkinter.CENTER)
         self.master.bind("<Escape>",self.quit)
     def start(self):
+        #Set the seed for the new game
+        seed = int(time.time()*1000)
+        random.seed(seed)
+        #Update the logger information
+        self.logger.setItem("Seed",seed)
+        self.logger.setItem("GameNumber",self.counter)
         #Create a new window with the game on it
-        random.seed(time.clock())
         self.window = Tkinter.Toplevel(self.master)
-        instance = MainFrame(self.window,self.condition)
+        instance = MainFrame(self.window,self.condition,self.logger)
         instance.pack(fill = Tkinter.BOTH,expand = 1)
         self.wait_window(self.window)
         self.focus_force()
-        #Update the dialog
+        #Update the dialog and logger
         self.counter += 1
+        self.logger.setItem("GameNumber",self.counter)
         self.dialog.configure(text = "Press the button to start game "+str(self.counter)+" of 3")
         if self.counter > 3:
             print "Thank you for playing!"
             self.quit()
     def quit(self,event = None):
         self.master.destroy()
-                
+
+class Logger:
+    fieldNames = [
+        "ID",
+        "Seed",
+        "Condition",
+        "GridSize",
+        "NumRules",
+        "ScoreRange",
+        "TimerLength",
+        "GameNumber",
+        "Source",
+        "Type",
+        "Time",
+        "Timer",
+        "Score",
+        "ScoreChange",
+        "MousePos",
+        "GridPos",
+        "RulesVisible",
+        "RulesSize",
+        "RulesPos"
+    ]
+    fieldMap = {}
+    def __init__(self,subjectID):
+        #Set the ID, seed, and condition fields
+        self.fieldMap["ID"] = subjectID
+        #Initialize the zero things to zero
+        self.fieldMap["Timer"] = 0
+        self.fieldMap["Score"] = 0
+        self.fieldMap["ScoreChange"] = 0
+        self.fieldMap["RulesVisible"] = False
+        self.fieldMap["RulesSize"] = 0
+        self.fieldMap["RulesPos"] = (0,0)
+        #Create the log file
+        self.file = open("logs/{0}.log".format(subjectID),"w")
+        #Write the header string
+        self.file.write(self.makeHeaderString())
+    #This returns a tab-delimited string of the log field names
+    def makeHeaderString(self):
+        headerString = ""
+        for x in range(len(self.fieldNames)):
+            if(x == len(self.fieldNames)-1):
+                headerString += self.fieldNames[x]+"\n"
+            else:
+                headerString += self.fieldNames[x]+"\t"
+        return headerString
+    #This function updates various fields that do not change often
+    def setItem(self,name,value):
+        self.fieldMap[name] = value
+    #This function logs the events
+    def log(self,source,type,changeMap):
+        #Update the time, as it always changes
+        self.fieldMap["Time"] = int(time.time()*1000)
+        #Update the source, as it should be explicit
+        self.fieldMap["Source"] = source
+        #Update the type, as it should be explicit, too
+        self.fieldMap["Type"] = type
+        #Some fields are by default zero
+        self.fieldMap["ScoreChange"] = 0
+        #Update everything in the change map
+        for x in changeMap.keys():
+            self.fieldMap[x] = changeMap[x]
+        #Write the new event to the log file
+        self.write()
+    #This function write the current data to the log file
+    def write(self):
+        writeString = ""
+        for x in range(len(self.fieldNames)):
+            if(x == len(self.fieldNames)-1):
+                writeString += str(self.fieldMap[self.fieldNames[x]])+"\n"
+            else:
+                writeString += str(self.fieldMap[self.fieldNames[x]])+"\t"
+        self.file.write(writeString)
+        
 if __name__ == "__main__":
     import sys
+    #Check if the subject ID has been given as a command-line argument
+    if(len(sys.argv) == 1):
+        print "Please enter a subject ID for this experiment"
+        sys.exit(1)
     subjectID = sys.argv[1]
+    #Create a logger to log the experiment data
+    logger = Logger(subjectID)
+    #Create the actual application GUI
     root = Tkinter.Tk()
     root.wm_title("Tile Sweeper")
     root.configure(background = "white")
-    app = DispatchFrame(root)
+    app = DispatchFrame(root,logger)
     app.pack(fill = Tkinter.BOTH,expand = 1)
     root.mainloop()
