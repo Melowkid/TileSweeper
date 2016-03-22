@@ -382,9 +382,9 @@ class Timer:
     def __init__(self,remaining):
         self.length = remaining
     def start(self):
-        self.startTime = time.clock()
+        self.startTime = time.time()
     def get(self):
-        return self.startTime+self.length - time.clock()
+        return self.startTime+self.length - time.time()
 
 class RulesView(Tkinter.Button):
     window = None
