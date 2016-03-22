@@ -1,6 +1,6 @@
 [Desktop Entry]
 Name = TileSweeper
 Comment = Experiment ?
-Exec = "../TileSweeper.sh"
+Exec = "../experiment/TileSweeper.sh"
 Type = Application
 Terminal = true
