@@ -722,10 +722,10 @@ class MainFrame(Tkinter.Frame):
     def clickLogger(self,event = None):
         #Ubuntu hack of great proportions
         try:
-            self.infoView.rulesView.window.lift()
+            self.infoView.rulesView.window.lift(self.master)
         except: pass
         try:
-            self.quitWindow.window.lift()
+            self.quitWindow.window.lift(self.master)
         except: pass
         #Ubuntu has terrible windowing systems
         id = self.tileGridView.find_closest(event.x, event.y)
