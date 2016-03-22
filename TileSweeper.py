@@ -405,14 +405,14 @@ class RulesView(Tkinter.Button):
         if self.window == None:
             pass
         else:
-            self.window.geometry("700x700+50+100")
-            self.window.focus_force()
+            self.window.lift()
             return
         #Make the window
         self.window = Tkinter.Toplevel(self)
         self.window.wm_title("Rule Display")
         self.window.resizable(0,0)
         self.window.geometry("700x700+50+100")
+        self.window.attributes("-topmost",True)
         #Display the rules
         ruleLabel = Tkinter.Label(self.window)
         ruleLabel.configure(wraplength = 500,text = self.ruleModel.getText(self.tileModel,self.scoreModel),font = self.font)
@@ -627,6 +627,7 @@ class QuitWindow:
         self.window.wm_title("Quit?")
         self.window.resizable(0,0)
         self.window.geometry("300x100+400+200")
+        self.window.attributes("-topmost",True)
         #Make the window contents
         dialog = Tkinter.Label(self.window,text = "Do you want to move on to the next game?")
         yes = Tkinter.Button(self.window,text = "yes",command = self.yes)
