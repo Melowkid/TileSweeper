@@ -420,7 +420,7 @@ class RulesView(Tkinter.Button):
         self.window.focus_force()   #Make sure that the rule window has focus so that escape doesn't kill everything
         self.window.protocol("WM_DELETE_WINDOW",self.close)
         self.window.bind("<Escape>",self.close)
-        self.window.bind("<FocusOut>",self.lift)
+        #self.window.bind("<FocusOut>",self.lift)
         #Log that the rules window was created
         self.window.update()
         rulesSize = (self.window.winfo_height(),self.window.winfo_width())
@@ -629,7 +629,7 @@ class QuitWindow:
         self.window.wm_title("Quit?")
         self.window.resizable(0,0)
         self.window.geometry("300x100+400+200")
-        self.window.grab_set()
+        #self.window.grab_set()
         #Make the window contents
         dialog = Tkinter.Label(self.window,text = "Do you want to move on to the next game?")
         yes = Tkinter.Button(self.window,text = "yes",command = self.yes)
@@ -652,6 +652,7 @@ class QuitWindow:
         self.window.destroy()
         
 class MainFrame(Tkinter.Frame):
+    quitWindow = None
     def __init__(self,parent,condition,logger,**kwargs):
         #Expand the frame class
         Tkinter.Frame.__init__(self,parent,**kwargs)
@@ -719,6 +720,14 @@ class MainFrame(Tkinter.Frame):
         self.timerController.bind(0,self.gridController.deactivate) #Make the timer deactivate the grid at zero
         self.timerController.bind(-2,self.master.destroy)
     def clickLogger(self,event = None):
+        #Ubuntu hack of great proportions
+        try:
+            self.infoView.rulesView.window.lift()
+        except: pass
+        try:
+            self.quitWindow.window.lift()
+        except: pass
+        #Ubuntu has terrible windowing systems
         id = self.tileGridView.find_closest(event.x, event.y)
         index = self.tileGridView.ids[id[0]]
         self.logger.log("Subject","MouseClick",{"MousePos":(event.x,event.y),"GridPos":index})
@@ -726,6 +735,7 @@ class MainFrame(Tkinter.Frame):
         self.gridController.reveal()
     def quit(self,event = None):
         self.quitWindow = QuitWindow(self.master,self.logger)
+    
        
 class DispatchFrame(Tkinter.Frame):
     def __init__(self,parent,logger,**kwargs):
