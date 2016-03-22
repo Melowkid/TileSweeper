@@ -412,7 +412,6 @@ class RulesView(Tkinter.Button):
         self.window.wm_title("Rule Display")
         self.window.resizable(0,0)
         self.window.geometry("700x700+50+100")
-        self.window.attributes("-topmost",True)
         #Display the rules
         ruleLabel = Tkinter.Label(self.window)
         ruleLabel.configure(wraplength = 500,text = self.ruleModel.getText(self.tileModel,self.scoreModel),font = self.font)
@@ -421,6 +420,7 @@ class RulesView(Tkinter.Button):
         self.window.focus_force()   #Make sure that the rule window has focus so that escape doesn't kill everything
         self.window.protocol("WM_DELETE_WINDOW",self.close)
         self.window.bind("<Escape>",self.close)
+        self.window.bind("<FocusOut>",self.lift)
         #Log that the rules window was created
         self.window.update()
         rulesSize = (self.window.winfo_height(),self.window.winfo_width())
@@ -431,6 +431,8 @@ class RulesView(Tkinter.Button):
     def minimize(self,event = None):
         print "this"
         pass
+    def lift(self,event = None):
+        self.window.lift()
     def listener(self,event = None):
         if self.window == None: return
         rulesSize = (self.window.winfo_height(),self.window.winfo_width())
@@ -627,7 +629,7 @@ class QuitWindow:
         self.window.wm_title("Quit?")
         self.window.resizable(0,0)
         self.window.geometry("300x100+400+200")
-        self.window.attributes("-topmost",True)
+        self.window.grab_set()
         #Make the window contents
         dialog = Tkinter.Label(self.window,text = "Do you want to move on to the next game?")
         yes = Tkinter.Button(self.window,text = "yes",command = self.yes)
