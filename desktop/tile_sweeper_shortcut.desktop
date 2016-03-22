@@ -1,6 +1,6 @@
 [Desktop Entry]
-Name = TileSweeper
-Comment = Experiment ?
-Exec = "../TileSweeper.sh"
-Type = Application
-Terminal = true
+Name=TileSweeper
+Comment=Experiment ?
+Exec="/home/tilesweeper/experiment/TileSweeper.sh"
+Type=Application
+Terminal=true
