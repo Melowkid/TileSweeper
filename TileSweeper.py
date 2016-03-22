@@ -405,7 +405,7 @@ class RulesView(Tkinter.Button):
         if self.window == None:
             pass
         else:
-            self.window.lift()
+            self.close()
             return
         #Make the window
         self.window = Tkinter.Toplevel(self)
